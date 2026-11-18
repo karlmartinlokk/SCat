@@ -1,9 +1,9 @@
 import SmeeClient from "smee-client"
-import 'dotenv/config'
+import { PORT, SMEE_URL } from './src/utils/config.ts'
 
 const smee = new SmeeClient({
-  source: process.env.SMEE_URL,
-  target: 'http://localhost:3003/webhooks',
+  source: SMEE_URL,
+  target: `http://localhost:${PORT}/webhooks`,
   logger: console
 });
 
