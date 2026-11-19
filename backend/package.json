@@ -24,6 +24,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@octokit/webhooks": "^14.2.0",
     "dotenv": "^18.0.10",
     "express": "^5.3.0"
   },

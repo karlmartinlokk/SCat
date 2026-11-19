@@ -1,31 +1,32 @@
-import { Router } from 'express'
-import { createHmac, timingSafeEqual } from 'crypto'
+import { Webhooks, createNodeMiddleware } from '@octokit/webhooks'
 import { WEBHOOK_SECRET } from '../utils/config.js'
 
-const webHookRouter = Router()
+const webhooks = new Webhooks({ secret: WEBHOOK_SECRET })
 
-//const tempDB = []
-
-//webHookRouter.get('/', (_req, _res) => {
-    //res.json(tempDB)
-//})
-
-webHookRouter.post('/', (req, res) => {
-    if (!Buffer.isBuffer(req.body)) return res.sendStatus(415)
-
-    const givenSig = req.headers['x-hub-signature-256']
-    if (typeof givenSig !== 'string') return res.sendStatus(401)
-
-    const hmacHex = createHmac('sha256', WEBHOOK_SECRET).update(req.body).digest('hex')
-    const expectedSigBuffer = Buffer.from('sha256=' + hmacHex, 'utf-8')
-    const givenSigBuffer = Buffer.from(givenSig, 'utf-8')
-
-    if (expectedSigBuffer.length !== givenSigBuffer.length || 
-        !timingSafeEqual(expectedSigBuffer, givenSigBuffer)) {
-        return res.sendStatus(401)
-    }
-    //TODO: add logger message of signature success
-    return res.sendStatus(200)
+webhooks.on('push', ({ payload }) => {
+    console.log(`push to ${payload.ref}, ${payload.commits.length} commit(s)`)
 })
 
-export default webHookRouter
+webhooks.on('pull_request.opened', ({ payload }) => {
+    console.log(`new PR #${payload.pull_request.number}: ${payload.pull_request.title}`)
+})
+
+webhooks.on('pull_request.review_requested', ({ payload }) => {
+    console.log(`review requested on PR #${payload.pull_request.number} by ${payload.sender.login}`)
+})
+
+webhooks.on('pull_request.closed', ({ payload }) => {
+    if (!payload.pull_request.merged) return   // PR closed without merging
+    console.log(`PR #${payload.pull_request.number} merged`)
+})
+
+webhooks.on('workflow_run.completed', ({ payload }) => {
+    if (payload.workflow_run.conclusion !== 'failure') return
+    console.log(`CI failed: ${payload.workflow_run.name}`)
+})
+
+webhooks.onError((error) => {
+    console.error('webhook handler error:', error)
+})
+
+export const webhooksMiddleware = createNodeMiddleware(webhooks, { path: '/webhooks' })
